@@ -1,0 +1,82 @@
+model Banner {
+  id           String         @id @default(uuid(7))
+  title        String
+  titleBn      String?
+  subtitle     String?
+  subtitleBn   String?
+  imageUrl     String
+  mobileImgUrl String?
+  ctaText      String?        @default("Shop Now")
+  ctaLink      String?
+  position     BannerPosition @default(HERO_SLIDER)
+  sortOrder    Int            @default(0)
+  isActive     Boolean        @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([position, isActive, sortOrder])
+  @@map("banners")
+}
+
+model ShowroomLocation {
+  id           String  @id @default(uuid(7))
+  name         String
+  district     String
+  thana        String
+  fullAddress  String
+  phoneNumber  String
+  googleMapUrl String?
+  openingHours String  @default("10:00 AM - 9:00 PM")
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([district, isActive])
+  @@map("showroom_locations")
+}
+
+model PlatformSettings {
+  id                     String  @id @default(uuid(7))
+  brandName              String  @default("EcomBD Footwear")
+  brandNameBn            String?
+  logoUrl                String?
+  faviconUrl             String?
+  supportPhone           String?
+  whatsappNumber         String?
+  messengerLink          String?
+  announcementText       String?
+  announcementTextBn     String?
+  insideDhakaShipping    Float   @default(60)
+  dhakaSubAreaShipping   Float   @default(100)
+  outsideDhakaShipping   Float   @default(120)
+  freeShippingThreshold  Float?
+  metaPixelId            String?
+  metaCapiAccessToken    String?
+  sendCapiOnConfirmOnly  Boolean @default(true)
+  tiktokPixelId          String?
+  exchangeWindowDays     Int     @default(7)
+  maintenanceMode        Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+model ActivityLog {
+  id       String @id @default(uuid(7))
+  action   String
+  entity   String
+  entityId String
+  metadata Json?
+
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity, entityId])
+  @@map("activity_logs")
+}
