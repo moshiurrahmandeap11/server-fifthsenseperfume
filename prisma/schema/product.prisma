@@ -1,0 +1,192 @@
+model Category {
+  id          String   @id @default(uuid(7))
+  name        String   @unique
+  nameBn      String?
+  slug        String   @unique
+  description String?
+  icon        String?
+  image       String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  parentId String?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([parentId])
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+model SizeChart {
+  id          String  @id @default(uuid(7))
+  title       String  @unique
+  description String?
+  guideImage  String?
+  // Array of { euSize: "41", ukSize: "7", usSize: "8", footLengthCm: 26.0, footLengthInch: 10.2 }
+  rows        Json
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("size_charts")
+}
+
+model Product {
+  id               String        @id @default(uuid(7))
+  name             String
+  nameBn           String?
+  slug             String        @unique
+  styleCode        String        @unique
+  shortDescription String?
+  description      String
+  specifications   Json?
+
+  // Shoe Specific Attributes
+  gender        ProductGender @default(MEN)
+  fitType       FitType       @default(TRUE_TO_SIZE)
+  upperMaterial String?
+  soleMaterial  String?
+  insoleType    String?
+  heelHeight    String?
+  closureType   String?
+  warrantyDays  Int           @default(0)
+
+  // Pricing
+  costPrice     Float
+  basePrice     Float
+  discountPrice Float?
+
+  // Media
+  thumbnailUrl String
+  videoUrl     String?
+
+  // Merchandising & Stock Flags
+  status       ProductStatus @default(DRAFT)
+  isFeatured   Boolean       @default(false)
+  isNewArrival Boolean       @default(true)
+  isBestSeller Boolean       @default(false)
+  isBrokenSize Boolean       @default(false)
+  isDeleted    Boolean       @default(false)
+
+  // Relations
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id])
+  sizeChartId String?
+  sizeChart   SizeChart? @relation(fields: [sizeChartId], references: [id], onDelete: SetNull)
+
+  colors               ProductColor[]
+  variants             ProductVariant[]
+  crossSells           ProductCrossSell[]    @relation("MainProductCrossSell")
+  crossSoldWith        ProductCrossSell[]    @relation("AddonProductCrossSell")
+  orderItems           OrderItem[]
+  reviews              Review[]
+  wishlists            Wishlist[]
+  flashSaleItems       FlashSaleItem[]
+  campaignLandingPages CampaignLandingPage[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([slug])
+  @@index([styleCode])
+  @@index([categoryId])
+  @@index([status, isDeleted])
+  @@index([gender, status])
+  @@index([isFeatured, isNewArrival, isBestSeller, isBrokenSize])
+  @@map("products")
+}
+
+model ProductColor {
+  id        String   @id @default(uuid(7))
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  colorName String
+  colorHex  String?
+  images    String[]
+  videoUrl  String?
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
+
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, colorName])
+  @@index([productId])
+  @@map("product_colors")
+}
+
+model ProductVariant {
+  id             String       @id @default(uuid(7))
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productColorId String
+  productColor   ProductColor @relation(fields: [productColorId], references: [id], onDelete: Cascade)
+
+  // Size Details
+  size         String
+  ukSize       String?
+  usSize       String?
+  footLengthCm Float?
+
+  // SKU & Barcode for Shoe Box
+  sku     String  @unique
+  barcode String? @unique
+
+  // Inventory & Stock
+  stockQuantity     Int @default(0)
+  showroomStock     Int @default(0)
+  lowStockThreshold Int @default(3)
+
+  // Optional Variant-specific Price Override
+  priceOverride     Float?
+  salePriceOverride Float?
+  isActive          Boolean @default(true)
+
+  stockMovements      StockMovement[]
+  orderItems          OrderItem[]
+  cartItems           CartItem[]
+  exchangeOldVariants ExchangeRequest[] @relation("ExchangeOldVariant")
+  exchangeNewVariants ExchangeRequest[] @relation("ExchangeNewVariant")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productColorId, size])
+  @@index([productId, size])
+  @@index([size, stockQuantity])
+  @@index([sku])
+  @@index([barcode])
+  @@map("product_variants")
+}
+
+model ProductCrossSell {
+  id             String  @id @default(uuid(7))
+  mainProductId  String
+  mainProduct    Product @relation("MainProductCrossSell", fields: [mainProductId], references: [id], onDelete: Cascade)
+  addonProductId String
+  addonProduct   Product @relation("AddonProductCrossSell", fields: [addonProductId], references: [id], onDelete: Cascade)
+
+  bundleDiscount Float   @default(0)
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([mainProductId, addonProductId])
+  @@index([mainProductId])
+  @@map("product_cross_sells")
+}
+
