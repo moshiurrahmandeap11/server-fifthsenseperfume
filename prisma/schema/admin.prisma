@@ -1,0 +1,44 @@
+model Admin {
+  id            String    @id @default(uuid(7))
+  name          String
+  email         String    @unique
+  profilePhoto  String?
+  contactNumber String?
+  isDeleted     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([isDeleted])
+  @@map("admins")
+}
+
+model CustomerFraudScore {
+  id          String @id @default(uuid(7))
+  phoneNumber String @unique
+
+  totalParcels   Int            @default(0)
+  deliveredCount Int            @default(0)
+  returnedCount  Int            @default(0)
+  successRate    Float          @default(100)
+  riskLevel      FraudRiskLevel @default(SAFE)
+  courierBreakdown Json?
+
+  isBlacklisted   Boolean   @default(false)
+  blacklistedIp   String?
+  blacklistReason String?
+  blacklistedAt   DateTime?
+
+  lastCheckedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([phoneNumber])
+  @@index([isBlacklisted])
+  @@index([riskLevel])
+  @@map("customer_fraud_scores")
+}
