@@ -1,0 +1,39 @@
+model ExchangeRequest {
+  id             String @id @default(uuid(7))
+  exchangeNumber String @unique
+
+  orderId     String
+  order       Order     @relation("OriginalOrderExchange", fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  type ExchangeType @default(SIZE_EXCHANGE)
+
+  oldVariantId String
+  oldVariant   ProductVariant  @relation("ExchangeOldVariant", fields: [oldVariantId], references: [id])
+  newVariantId String?
+  newVariant   ProductVariant? @relation("ExchangeNewVariant", fields: [newVariantId], references: [id], onDelete: SetNull)
+
+  reason         String
+  customerImages String[]
+  adminNote      String?
+
+  status         ExchangeStatus @default(PENDING)
+  returnQcStatus ReturnQcStatus @default(AWAITING_RETURN)
+
+  // Auto-generated Replacement Order (when approved)
+  replacementOrderId String? @unique
+  replacementOrder   Order?  @relation("ReplacementOrderExchange", fields: [replacementOrderId], references: [id], onDelete: SetNull)
+
+  exchangeDeliveryFee Float @default(0)
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([returnQcStatus])
+  @@map("exchange_requests")
+}
+
