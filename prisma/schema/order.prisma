@@ -1,0 +1,163 @@
+model IncompleteOrder {
+  id          String  @id @default(uuid(7))
+  sessionKey  String?
+  customerName    String?
+  customerPhone   String
+  customerEmail   String?
+  shippingAddress String?
+  division        String?
+  district        String?
+  thana           String?
+
+  // Snapshot of selected shoe variants in cart
+  itemsJson   Json
+  totalAmount Float       @default(0)
+  source      OrderSource @default(WEBSITE)
+
+  status           IncompleteOrderStatus @default(ABANDONED)
+  convertedOrderId String?               @unique
+  adminNote        String?
+
+  handledById String?
+  handledBy   User?   @relation(fields: [handledById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerPhone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("incomplete_orders")
+}
+
+model Order {
+  id          String @id @default(uuid(7))
+  orderNumber String @unique
+
+  // Optional User relation (supports both Guest Checkout & Logged-in Customer)
+  userId String?
+  user   User?   @relation("CustomerOrders", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Customer & Shipping Snapshot
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  shippingAddress String
+  division        String
+  district        String
+  thana           String
+  deliveryZone    DeliveryZone @default(INSIDE_DHAKA)
+
+  // Financial Breakdown
+  subtotal             Float
+  discountAmount       Float   @default(0)
+  couponId             String?
+  coupon               Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode           String?
+  shippingCharge       Float   @default(0)
+  totalAmount          Float
+  advancePaidAmount    Float   @default(0)
+  codCollectibleAmount Float
+  totalCostPrice       Float   @default(0)
+
+  // Order & Payment Statuses
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentMethod PaymentMethod @default(COD)
+  source        OrderSource   @default(WEBSITE)
+
+  // Call Center & Warehouse Verification
+  confirmedById    String?
+  confirmedBy      User?     @relation("ConfirmedByStaff", fields: [confirmedById], references: [id], onDelete: SetNull)
+  confirmedAt      DateTime?
+  packedById       String?
+  packedBy         User?     @relation("PackedByStaff", fields: [packedById], references: [id], onDelete: SetNull)
+  packedAt         DateTime?
+  isBarcodeScanned Boolean   @default(false)
+
+  customerNote String?
+  adminNote    String?
+  cancelReason String?
+
+  // Server-Side Meta Conversions API (CAPI) Tracking Fields
+  isCapiPurchaseSent Boolean @default(false)
+  fbp                String?
+  fbc                String?
+  clientIp           String?
+  clientUserAgent    String?
+
+  // Self-Relation for Size Exchange Replacement Orders
+  parentOrderId     String?
+  parentOrder       Order?  @relation("ReplacementOrderHierarchy", fields: [parentOrderId], references: [id], onDelete: SetNull)
+  replacementOrders Order[] @relation("ReplacementOrderHierarchy")
+
+  // Child Relations
+  items                 OrderItem[]
+  statusHistory         OrderStatusHistory[]
+  shipment              CourierShipment?
+  payments              Payment[]
+  exchangeRequests      ExchangeRequest[]    @relation("OriginalOrderExchange")
+  exchangeAsReplacement ExchangeRequest?     @relation("ReplacementOrderExchange")
+  reviews               Review[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([orderNumber])
+  @@index([customerPhone])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String         @id @default(uuid(7))
+  orderId   String
+  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product        @relation(fields: [productId], references: [id])
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+
+  // Snapshot of Shoe Details at time of purchase
+  productName String
+  styleCode   String
+  colorName   String
+  size        String
+  sku         String
+  imageUrl    String
+
+  quantity      Int
+  unitPrice     Float
+  unitCostPrice Float @default(0)
+  totalPrice    Float
+
+  exchangeRequests ExchangeRequest[]
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([size])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid(7))
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  comment     String?
+  changedById String?
+  changedBy   User?       @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("order_status_histories")
+}
+
