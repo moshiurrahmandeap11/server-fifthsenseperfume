@@ -1,0 +1,87 @@
+model Coupon {
+  id                String       @id @default(uuid(7))
+  code              String       @unique
+  description       String?
+  discountType      DiscountType @default(PERCENTAGE)
+  discountValue     Float
+  minOrderAmount    Float        @default(0)
+  minPairCount      Int          @default(1)
+  maxDiscountAmount Float?
+  onlyPrepaid       Boolean      @default(false)
+
+  startsAt   DateTime  @default(now())
+  expiresAt  DateTime?
+  usageLimit Int?
+  usedCount  Int       @default(0)
+  isActive   Boolean   @default(true)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive, expiresAt])
+  @@map("coupons")
+}
+
+model FlashSale {
+  id          String   @id @default(uuid(7))
+  title       String
+  titleBn     String?
+  slug        String   @unique
+  bannerImage String?
+  startsAt    DateTime
+  endsAt      DateTime
+  isActive    Boolean  @default(true)
+
+  items FlashSaleItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive, startsAt, endsAt])
+  @@map("flash_sales")
+}
+
+model FlashSaleItem {
+  id          String    @id @default(uuid(7))
+  flashSaleId String
+  flashSale   FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  flashSalePrice Float
+  sortOrder      Int   @default(0)
+
+  @@unique([flashSaleId, productId])
+  @@index([productId])
+  @@map("flash_sale_items")
+}
+
+model CampaignLandingPage {
+  id        String  @id @default(uuid(7))
+  title     String
+  slug      String  @unique
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  headline       String
+  subheadline    String?
+  heroVideoUrl   String?
+  bannerImages   String[]
+  featureBullets String[]
+  offerPrice     Float?
+  freeDelivery   Boolean  @default(false)
+  showSizeChart  Boolean  @default(true)
+  isActive       Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([productId])
+  @@map("campaign_landing_pages")
+}
+
