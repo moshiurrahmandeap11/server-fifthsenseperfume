@@ -1,0 +1,121 @@
+model User {
+  id                 String     @id @default(uuid(7))
+  name               String
+  email              String     @unique
+  emailVerified      Boolean    @default(false)
+  role               Role       @default(CUSTOMER)
+  status             UserStatus @default(ACTIVE)
+  needPasswordChange Boolean    @default(false)
+
+  image String?
+  bio   String?
+
+  birthdate   DateTime?
+  gender      Gender?
+  phoneNumber String?
+  address     String?
+
+  // Customer Shoe Profile & Loyalty
+  savedShoeSize String?
+  loyaltyPoints Int     @default(0)
+
+  isActive Boolean   @default(true)
+  isBanned Boolean   @default(false)
+  bannedAt DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  admin     Admin?
+  cart      Cart?
+  addresses CustomerAddress[]
+
+  // E-Commerce Relations
+  orders                  Order[]              @relation("CustomerOrders")
+  confirmedOrders         Order[]              @relation("ConfirmedByStaff")
+  packedOrders            Order[]              @relation("PackedByStaff")
+  handledIncompleteOrders IncompleteOrder[]
+  orderStatusChanges      OrderStatusHistory[]
+  stockMovements          StockMovement[]
+  wishlists               Wishlist[]
+  reviews                 Review[]
+  dailyExpenses           DailyExpense[]
+  activityLogs            ActivityLog[]
+
+  @@index([phoneNumber])
+  @@index([role, status])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid(7))
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid(7))
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid(7))
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+model CustomerAddress {
+  id            String       @id @default(uuid(7))
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String       @default("Home")
+  recipientName String
+  phoneNumber   String
+  division      String
+  district      String
+  thana         String
+  fullAddress   String
+  deliveryZone  DeliveryZone @default(INSIDE_DHAKA)
+  isDefault     Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("customer_addresses")
+}
