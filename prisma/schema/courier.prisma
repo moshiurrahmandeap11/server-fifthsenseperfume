@@ -1,0 +1,48 @@
+model CourierShipment {
+  id      String @id @default(uuid(7))
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  provider      CourierProvider
+  consignmentId String?         @unique
+  trackingCode  String?         @unique
+  trackingUrl   String?
+
+  codCollectibleAmount Float
+  deliveryFee          Float?
+  codFee               Float?
+  netPayoutAmount      Float?
+
+  courierStatus      String?
+  webhookPayloadJson Json?
+
+  isPayoutReconciled Boolean   @default(false)
+  reconciledAt       DateTime?
+
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  returnedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([provider, courierStatus])
+  @@index([consignmentId])
+  @@index([trackingCode])
+  @@index([isPayoutReconciled])
+  @@map("courier_shipments")
+}
+
+model ShippingZoneRule {
+  id                    String       @id @default(uuid(7))
+  zone                  DeliveryZone @unique
+  title                 String
+  charge                Float
+  freeShippingMinAmount Float?
+  estimatedDeliveryText String       @default("24-48 Hours")
+  isActive              Boolean      @default(true)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("shipping_zone_rules")
+}
+
