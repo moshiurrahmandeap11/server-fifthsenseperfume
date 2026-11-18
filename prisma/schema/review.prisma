@@ -1,0 +1,42 @@
+model Review {
+  id        String  @id @default(uuid(7))
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId   String?
+  order     Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  customerName  String
+  purchasedSize String?
+  rating        Int
+  fitFeedback   FitType  @default(TRUE_TO_SIZE)
+  comment       String
+  images        String[]
+
+  isVerifiedPurchase Boolean @default(false)
+  isApproved         Boolean @default(false)
+  isFeatured         Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, isApproved])
+  @@index([isFeatured])
+  @@map("reviews")
+}
+
+model Wishlist {
+  id        String  @id @default(uuid(7))
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlists")
+}
+
