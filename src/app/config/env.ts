@@ -63,6 +63,10 @@ interface EnvConfig {
         META_PIXEL_ID?: string;
         META_CAPI_ACCESS_TOKEN?: string;
     };
+    RESEND: {
+        API_KEY?: string;
+        FROM_EMAIL?: string;
+    };
 }
 
 const loadEnvVariables = (): EnvConfig => {
@@ -156,6 +160,10 @@ const loadEnvVariables = (): EnvConfig => {
         META: {
             META_PIXEL_ID: process.env.META_PIXEL_ID,
             META_CAPI_ACCESS_TOKEN: process.env.META_CAPI_ACCESS_TOKEN,
+        },
+        RESEND: {
+            API_KEY: process.env.RESEND_API_KEY,
+            FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
         },
     };
 };
