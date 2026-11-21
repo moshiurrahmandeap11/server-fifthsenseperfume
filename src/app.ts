@@ -51,7 +51,7 @@ app.use("/api/v1", IndexRoutes);
 app.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
         success: true,
-        message: 'EcomBD Shoe Brand API is working',
+        message: 'FIFTH SENSE Perfume Brand API is working',
     });
 });
 
