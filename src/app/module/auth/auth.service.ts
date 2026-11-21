@@ -119,7 +119,7 @@ const verifyEmail = async (email: string, otp: string) => {
             try {
                 await sendEmail({
                     to: user.email,
-                    subject: "Welcome to EcomBD Footwear!",
+                    subject: "Welcome to FIFTH SENSE PERFUMES!",
                     templateName: "welcome",
                     templateData: {
                         name: user.name,
