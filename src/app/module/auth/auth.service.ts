@@ -124,7 +124,7 @@ const verifyEmail = async (email: string, otp: string) => {
                     templateData: {
                         name: user.name,
                         email: user.email,
-                        dashboardUrl: `${envVars.FRONTEND_URL}/account`,
+                        dashboardUrl: `${envVars.FRONTEND_URL}/customer/dashboard`,
                     },
                 });
             } catch (emailError) {
