@@ -49,6 +49,12 @@ const storage = new CloudinaryStorage({
             folder: `ecombd/${folder}`,
             public_id: uniqueName,
             resource_type: "auto",
+            ...(!isSvgOrPdf
+                ? {
+                      format: "webp",
+                      transformation: [{ quality: "auto:good" }],
+                  }
+                : {}),
         };
     },
 });
