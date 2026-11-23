@@ -8,6 +8,7 @@ import { CourierRoutes } from "../module/courier/courier.route";
 import { ExchangeRoutes } from "../module/exchange/exchange.route";
 import { InventoryRoutes } from "../module/inventory/inventory.route";
 import { MarketingRoutes } from "../module/marketing/marketing.route";
+import { MediaRoutes } from "../module/media/media.route";
 import { OrderRoutes } from "../module/order/order.route";
 import { PaymentRoutes } from "../module/payment/payment.route";
 import { ProductRoutes } from "../module/product/product.route";
