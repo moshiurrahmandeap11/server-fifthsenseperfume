@@ -37,6 +37,7 @@ router.use("/marketing", MarketingRoutes);
 router.use("/reviews", ReviewRoutes);
 router.use("/wishlist", WishlistRoutes);
 router.use("/system", SystemRoutes);
+router.use("/media", MediaRoutes);
 router.use("/analytics", AnalyticsRoutes);
 
 export const IndexRoutes = router;
