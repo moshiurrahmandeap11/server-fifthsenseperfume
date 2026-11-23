@@ -8,6 +8,7 @@ import { CourierRoutes } from "../module/courier/courier.route";
 import { ExchangeRoutes } from "../module/exchange/exchange.route";
 import { InventoryRoutes } from "../module/inventory/inventory.route";
 import { MarketingRoutes } from "../module/marketing/marketing.route";
+import { MediaRoutes } from "../module/media/media.route";
 import { OrderRoutes } from "../module/order/order.route";
 import { PaymentRoutes } from "../module/payment/payment.route";
 import { ProductRoutes } from "../module/product/product.route";
@@ -36,6 +37,7 @@ router.use("/marketing", MarketingRoutes);
 router.use("/reviews", ReviewRoutes);
 router.use("/wishlist", WishlistRoutes);
 router.use("/system", SystemRoutes);
+router.use("/media", MediaRoutes);
 router.use("/analytics", AnalyticsRoutes);
 
 export const IndexRoutes = router;

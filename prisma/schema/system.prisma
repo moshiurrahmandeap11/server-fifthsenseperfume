@@ -39,10 +39,16 @@ model ShowroomLocation {
 
 model PlatformSettings {
   id                     String  @id @default(uuid(7))
-  brandName              String  @default("EcomBD Footwear")
+  brandName              String  @default("FIFTH SENSE")
   brandNameBn            String?
+  brandSlug              String? @default("fifth-sense")
+  tagline                String? @default("Luxury Niche Perfumes & Haute Parfumerie")
   logoUrl                String?
   faviconUrl             String?
+  primaryColor           String  @default("#09090b")
+  secondaryColor         String  @default("#c5a059")
+  accentColor            String  @default("#18181b")
+  footerDescription      String?
   supportPhone           String?
   whatsappNumber         String?
   messengerLink          String?

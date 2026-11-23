@@ -36,6 +36,7 @@ export const uploadFileToCloudinary = async (
         fileNameWithoutExtension;
 
     const folder = extension === "pdf" ? "pdfs" : "images";
+    const isSvgOrPdf = extension === "pdf" || extension === "svg";
 
     return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
@@ -43,6 +44,12 @@ export const uploadFileToCloudinary = async (
                 resource_type: "auto",
                 public_id: `ecombd/${folder}/${uniqueName}`,
                 folder: `ecombd/${folder}`,
+                ...(!isSvgOrPdf
+                    ? {
+                          format: "webp",
+                          transformation: [{ quality: "auto:good" }],
+                      }
+                    : {}),
             },
             (error, result) => {
                 if (error) {

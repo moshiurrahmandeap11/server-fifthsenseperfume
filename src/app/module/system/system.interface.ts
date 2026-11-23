@@ -3,8 +3,14 @@ import { BannerPosition } from "../../../generated/prisma/enums";
 export interface IUpdatePlatformSettingsPayload {
     brandName?: string;
     brandNameBn?: string;
+    brandSlug?: string;
+    tagline?: string;
     logoUrl?: string;
     faviconUrl?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
+    footerDescription?: string;
     supportPhone?: string;
     whatsappNumber?: string;
     messengerLink?: string;
