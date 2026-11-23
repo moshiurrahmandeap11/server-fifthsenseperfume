@@ -44,6 +44,12 @@ export const uploadFileToCloudinary = async (
                 resource_type: "auto",
                 public_id: `ecombd/${folder}/${uniqueName}`,
                 folder: `ecombd/${folder}`,
+                ...(!isSvgOrPdf
+                    ? {
+                          format: "webp",
+                          transformation: [{ quality: "auto:good" }],
+                      }
+                    : {}),
             },
             (error, result) => {
                 if (error) {
