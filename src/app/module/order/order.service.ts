@@ -191,11 +191,19 @@ const checkoutOrder = async (
             where: { code: payload.couponCode.toUpperCase() },
         });
 
+        const now = new Date();
+        const totalItemsCount = payload.items.reduce((sum, item) => sum + item.quantity, 0);
+        const isPrepaidOrder = requestedPaymentMethod !== PaymentMethod.COD;
+
         if (
             coupon &&
             coupon.isActive &&
-            (!coupon.expiresAt || new Date(coupon.expiresAt) > new Date()) &&
-            subtotal >= coupon.minOrderAmount
+            new Date(coupon.startsAt) <= now &&
+            (!coupon.expiresAt || new Date(coupon.expiresAt) > now) &&
+            (coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit) &&
+            subtotal >= coupon.minOrderAmount &&
+            totalItemsCount >= coupon.minPairCount &&
+            (!coupon.onlyPrepaid || isPrepaidOrder)
         ) {
             appliedCouponId = coupon.id;
             if (coupon.discountType === "PERCENTAGE") {
