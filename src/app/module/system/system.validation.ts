@@ -21,6 +21,19 @@ export const updatePlatformSettingsZodSchema = z.object({
     dhakaSubAreaShipping: z.coerce.number().min(0).optional(),
     outsideDhakaShipping: z.coerce.number().min(0).optional(),
     freeShippingThreshold: z.coerce.number().min(0).nullable().optional(),
+    enabledPaymentMethods: z
+        .array(
+            z.enum([
+                "COD",
+                "BKASH",
+                "NAGAD",
+                "ROCKET",
+                "SSLCOMMERZ",
+                "AAMARPAY",
+            ])
+        )
+        .min(1, "At least one payment method must be enabled")
+        .optional(),
     metaPixelId: z.string().optional(),
     metaCapiAccessToken: z.string().optional(),
     sendCapiOnConfirmOnly: z.coerce.boolean().optional(),
