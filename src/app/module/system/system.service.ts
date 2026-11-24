@@ -506,5 +506,8 @@ export const SystemService = {
     createShowroom,
     updateShowroom,
     deleteShowroom,
+    getLocations,
+    resolveDeliveryZone,
+    getShippingQuote,
 };
 
