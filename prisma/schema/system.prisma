@@ -58,7 +58,7 @@ model PlatformSettings {
   dhakaSubAreaShipping   Float   @default(100)
   outsideDhakaShipping   Float   @default(120)
   freeShippingThreshold  Float?
-  enabledPaymentMethods  String[] @default(["COD", "BKASH", "NAGAD", "SSLCOMMERZ"])
+  enabledPaymentMethods  String[] @default(["COD", "STRIPE"])
   loyaltyPointsPer100Bdt Int      @default(1)
   loyaltyPointValueBdt   Float    @default(1)
   metaPixelId            String?
