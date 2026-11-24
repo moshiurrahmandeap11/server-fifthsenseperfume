@@ -155,8 +155,29 @@ const deleteExpense = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const verifyStripeSession = catchAsync(async (req: Request, res: Response) => {
+    const sessionId = req.query.sessionId as string;
+    const result = await PaymentService.verifyStripeSession(sessionId);
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: result.success,
+        message: result.message,
+        data: result,
+    });
+});
+
+const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
+    const signature = (req.headers["stripe-signature"] as string) || "";
+    const result = await PaymentService.handleStripeWebhook(req.body as Buffer, signature);
+
+    res.status(status.OK).json(result);
+});
+
 export const PaymentController = {
     initiatePayment,
+    verifyStripeSession,
+    handleStripeWebhook,
     handleBkashCallback,
     handleSSLCommerzSuccess,
     handleSSLCommerzFail,
