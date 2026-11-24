@@ -25,6 +25,7 @@ export const updatePlatformSettingsZodSchema = z.object({
         .array(
             z.enum([
                 "COD",
+                "STRIPE",
                 "BKASH",
                 "NAGAD",
                 "ROCKET",
