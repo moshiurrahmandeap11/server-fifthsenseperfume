@@ -899,6 +899,34 @@ const trackPublicOrder = async (orderNumber: string, phone: string) => {
     return order;
 };
 
+/**
+ * Retrieve orders belonging to the authenticated customer
+ */
+const getMyOrders = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { phoneNumber: true },
+    });
+
+    const whereConditions: Prisma.OrderWhereInput = user?.phoneNumber
+        ? {
+              OR: [{ userId }, { customerPhone: user.phoneNumber }],
+          }
+        : { userId };
+
+    return prisma.order.findMany({
+        where: whereConditions,
+        orderBy: { createdAt: "desc" },
+        include: {
+            items: true,
+            shipment: true,
+            statusHistory: {
+                orderBy: { createdAt: "desc" },
+            },
+        },
+    });
+};
+
 export const OrderService = {
     checkoutOrder,
     incompleteCapture,
@@ -911,4 +939,5 @@ export const OrderService = {
     bulkStatusUpdate,
     scanVerifyPack,
     trackPublicOrder,
+    getMyOrders,
 };
