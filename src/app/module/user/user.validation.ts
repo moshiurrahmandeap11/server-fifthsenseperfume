@@ -10,7 +10,7 @@ export const updateProfileZodSchema = z.object({
     address: z.string().optional(),
     savedShoeSize: z.string().optional(),
     bio: z.string().max(250, "Bio must be at most 250 characters").optional(),
-    image: z.string().url("Invalid image URL").optional(),
+    image: z.string().url("Invalid image URL").optional().or(z.literal("")),
 });
 
 export const createAddressZodSchema = z.object({
