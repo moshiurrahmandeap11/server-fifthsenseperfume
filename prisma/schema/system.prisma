@@ -59,6 +59,8 @@ model PlatformSettings {
   outsideDhakaShipping   Float   @default(120)
   freeShippingThreshold  Float?
   enabledPaymentMethods  String[] @default(["COD", "BKASH", "NAGAD", "SSLCOMMERZ"])
+  loyaltyPointsPer100Bdt Int      @default(1)
+  loyaltyPointValueBdt   Float    @default(1)
   metaPixelId            String?
   metaCapiAccessToken    String?
   sendCapiOnConfirmOnly  Boolean @default(true)
