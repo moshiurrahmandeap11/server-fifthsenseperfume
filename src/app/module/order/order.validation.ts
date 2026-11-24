@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const DeliveryZones = ["INSIDE_DHAKA", "DHAKA_SUB_AREA", "OUTSIDE_DHAKA"] as const;
-const PaymentMethods = ["COD", "BKASH", "NAGAD", "ROCKET", "SSLCOMMERZ", "AAMARPAY"] as const;
+const PaymentMethods = ["COD", "STRIPE"] as const;
 const OrderSources = ["WEBSITE", "AD_LANDING_PAGE", "WHATSAPP", "MESSENGER", "PHONE_CALL", "EXCHANGE_REPLACEMENT"] as const;
 const OrderStatuses = [
     "PENDING",
