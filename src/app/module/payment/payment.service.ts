@@ -10,6 +10,7 @@ import {
 import { envVars } from "../../config/env";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
+import { sendOrderInvoiceEmail } from "../../utils/invoice";
 import { QueryBuilder } from "../../utils/QueryBuilder";
 import {
     IBkashCallbackPayload,
