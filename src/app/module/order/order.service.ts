@@ -254,6 +254,15 @@ const checkoutOrder = async (
 
     // 5. Atomic Transaction: Create Order, Deduct Stock & Points, Log Movement
     const createdOrder = await prisma.$transaction(async (tx) => {
+        if (appliedCouponId) {
+            await tx.coupon.update({
+                where: { id: appliedCouponId },
+                data: {
+                    usedCount: { increment: 1 },
+                },
+            });
+        }
+
         if (loyaltyPointsRedeemed > 0 && user?.userId) {
             await tx.user.update({
                 where: { id: user.userId },
