@@ -242,7 +242,7 @@ const checkoutOrder = async (
     const codCollectibleAmount = totalAmount - advancePaidAmount;
     const orderNumber = generateOrderNumber();
 
-    // 5. Atomic Transaction: Create Order, Deduct Stock, Log Movement
+    // 5. Atomic Transaction: Create Order, Deduct Stock & Points, Log Movement
     const createdOrder = await prisma.$transaction(async (tx) => {
         const newOrder = await tx.order.create({
             data: {
