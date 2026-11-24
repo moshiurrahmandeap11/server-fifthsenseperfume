@@ -166,6 +166,21 @@ const checkoutOrder = async (
         shippingCharge = 0;
     }
 
+    // 3.5. Validate that requested payment method is enabled in Admin PlatformSettings
+    const requestedPaymentMethod = payload.paymentMethod || PaymentMethod.COD;
+    const enabledMethods =
+        platformSettings?.enabledPaymentMethods &&
+        platformSettings.enabledPaymentMethods.length > 0
+            ? platformSettings.enabledPaymentMethods
+            : ["COD", "BKASH", "NAGAD", "SSLCOMMERZ"];
+
+    if (!enabledMethods.includes(requestedPaymentMethod)) {
+        throw new AppError(
+            status.BAD_REQUEST,
+            `Payment method '${requestedPaymentMethod}' is currently disabled`
+        );
+    }
+
     // 4. Coupon Discount Calculation
     let discountAmount = 0;
     let appliedCouponId: string | null = null;
