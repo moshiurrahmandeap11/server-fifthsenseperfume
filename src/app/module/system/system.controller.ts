@@ -225,5 +225,7 @@ export const SystemController = {
     createShowroom,
     updateShowroom,
     deleteShowroom,
+    getLocations,
+    getShippingQuote,
 };
 
