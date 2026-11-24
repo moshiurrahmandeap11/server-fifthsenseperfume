@@ -47,8 +47,6 @@ const updateMyProfile = async (
         throw new AppError(status.NOT_FOUND, "User not found");
     }
 
-    const imageUrl = file?.path || payload.image;
-
     const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
@@ -58,8 +56,12 @@ const updateMyProfile = async (
             ...(payload.birthdate && { birthdate: new Date(payload.birthdate) }),
             ...(payload.address && { address: payload.address }),
             ...(payload.savedShoeSize && { savedShoeSize: payload.savedShoeSize }),
-            ...(payload.bio && { bio: payload.bio }),
-            ...(imageUrl && { image: imageUrl }),
+            ...(payload.bio !== undefined && { bio: payload.bio }),
+            ...(file?.path
+                ? { image: file.path }
+                : payload.image !== undefined
+                  ? { image: payload.image || null }
+                  : {}),
         },
         include: {
             addresses: true,
