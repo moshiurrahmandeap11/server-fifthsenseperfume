@@ -20,6 +20,7 @@ import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { SystemService } from "../system/system.service";
 import {
     IBulkStatusPayload,
     ICheckoutPayload,
