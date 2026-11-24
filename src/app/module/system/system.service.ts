@@ -413,6 +413,10 @@ const DHAKA_SUB_AREA_THANAS = new Set([
 
 const DHAKA_SUB_AREA_DISTRICTS = new Set(["gazipur", "narayanganj"]);
 
+/**
+ * Resolve authoritative Bangladesh delivery zone from district and thana/upazila.
+ * Used by both shipping quote preview and server-side checkout order calculation.
+ */
 const resolveDeliveryZone = (
     _division?: string,
     district?: string,
@@ -435,6 +439,9 @@ const resolveDeliveryZone = (
     return DeliveryZone.OUTSIDE_DHAKA;
 };
 
+/**
+ * Calculate live shipping charge and free-shipping eligibility from PlatformSettings.
+ */
 const getShippingQuote = async (query: {
     division?: string;
     district?: string;
