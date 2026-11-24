@@ -42,6 +42,13 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 // Enable URL-encoded form data parsing
 app.use(express.urlencoded({ extended: true }));
 
+// Stripe webhook requires raw Buffer body BEFORE express.json()
+app.post(
+    "/api/v1/payments/stripe/webhook",
+    express.raw({ type: "application/json" }),
+    PaymentController.handleStripeWebhook
+);
+
 // Middleware to parse JSON bodies
 app.use(express.json());
 
