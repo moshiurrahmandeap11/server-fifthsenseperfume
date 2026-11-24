@@ -20,6 +20,7 @@ export interface IUpdatePlatformSettingsPayload {
     dhakaSubAreaShipping?: number;
     outsideDhakaShipping?: number;
     freeShippingThreshold?: number | null;
+    enabledPaymentMethods?: string[];
     metaPixelId?: string;
     metaCapiAccessToken?: string;
     sendCapiOnConfirmOnly?: boolean;
