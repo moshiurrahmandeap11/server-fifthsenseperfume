@@ -34,6 +34,8 @@ export const updatePlatformSettingsZodSchema = z.object({
         )
         .min(1, "At least one payment method must be enabled")
         .optional(),
+    loyaltyPointsPer100Bdt: z.coerce.number().int().min(0).optional(),
+    loyaltyPointValueBdt: z.coerce.number().min(0).optional(),
     metaPixelId: z.string().optional(),
     metaCapiAccessToken: z.string().optional(),
     sendCapiOnConfirmOnly: z.coerce.boolean().optional(),
