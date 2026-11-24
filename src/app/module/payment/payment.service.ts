@@ -143,6 +143,69 @@ const initiatePayment = async (payload: IInitiatePaymentPayload) => {
         }
     }
 
+    // --- STRIPE CHECKOUT SESSION INTEGRATION ---
+    if (method === PaymentMethod.STRIPE) {
+        const stripeSecretKey = envVars.PAYMENT.STRIPE_SECRET_KEY;
+        if (!stripeSecretKey) {
+            throw new AppError(
+                status.INTERNAL_SERVER_ERROR,
+                "Stripe secret key is not configured in environment variables"
+            );
+        }
+
+        const stripe = new Stripe(stripeSecretKey);
+        const currency = (envVars.PAYMENT.STRIPE_CURRENCY || "bdt").toLowerCase();
+
+        const session = await stripe.checkout.sessions.create({
+            mode: "payment",
+            customer_email: order.customerEmail || undefined,
+            line_items: [
+                {
+                    price_data: {
+                        currency,
+                        product_data: {
+                            name: `Order #${order.orderNumber}`,
+                            description: `Fifth Sense — ${order.customerName} (${order.customerPhone})`,
+                        },
+                        unit_amount: Math.round(amount * 100),
+                    },
+                    quantity: 1,
+                },
+            ],
+            metadata: {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                paymentId: payment.id,
+                transactionId,
+            },
+            payment_intent_data: {
+                metadata: {
+                    orderId: order.id,
+                    orderNumber: order.orderNumber,
+                    paymentId: payment.id,
+                    transactionId,
+                },
+            },
+            success_url: `${envVars.FRONTEND_URL}/checkout/payment/success?session_id={CHECKOUT_SESSION_ID}&orderId=${order.id}`,
+            cancel_url: `${envVars.FRONTEND_URL}/checkout/payment/cancel?orderId=${order.id}&transactionId=${transactionId}`,
+        });
+
+        if (!session.url) {
+            throw new AppError(status.BAD_GATEWAY, "Failed to create Stripe Checkout session");
+        }
+
+        await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+                gatewayResponse: {
+                    stripeSessionId: session.id,
+                } as any,
+            },
+        });
+
+        gatewayUrl = session.url;
+    }
+
     // --- SSLCOMMERZ GATEWAY INTEGRATION ---
     if (method === PaymentMethod.SSLCOMMERZ) {
         if (envVars.PAYMENT.SSLCOMMERZ_STORE_ID && envVars.PAYMENT.SSLCOMMERZ_STORE_PASSWORD) {
