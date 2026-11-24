@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice <%= orderNumber %> — FIFTH SENSE PERFUMES</title>
+</head>
+<body style="margin: 0; padding: 32px 16px; font-family: Arial, Helvetica, sans-serif; background-color: #f9f6ed; color: #18181b;">
+    <div style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e4e4e7;">
+        <!-- Header -->
+        <div style="background-color: #09090b; color: #ffffff; padding: 28px 32px; text-align: center;">
+            <p style="margin: 0 0 6px 0; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #c5a059;">
+                FIFTH SENSE PERFUMES
+            </p>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 400; letter-spacing: 0.5px;">
+                <%= isPaymentReceipt ? "Payment Receipt & Invoice" : "Order Confirmation & Invoice" %>
+            </h1>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 28px 32px;">
+            <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #3f3f46;">
+                Dear <strong><%= customerName %></strong>,
+            </p>
+            <p style="margin: 0 0 24px 0; font-size: 13px; line-height: 1.6; color: #52525b;">
+                <%= isPaymentReceipt
+                    ? "Thank you for your card payment. Your order payment has been confirmed and your fragrance parcel is being prepared. A PDF copy of your paid invoice is attached."
+                    : "Thank you for your order with Fifth Sense Perfumes. Your order has been received and a PDF copy of your invoice is attached to this email." %>
+            </p>
+
+            <!-- Order Meta Box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e4e4e7; background-color: #fafafa; margin-bottom: 24px; font-size: 12px;">
+                <tr>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; color: #71717a;">Order Number</td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; text-align: right; font-weight: 600; color: #09090b;"><%= orderNumber %></td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; color: #71717a;">Order Date</td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; text-align: right; color: #09090b;"><%= orderDate %></td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; color: #71717a;">Payment Method</td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e4e4e7; text-align: right; color: #09090b;"><%= paymentMethodLabel %></td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 16px; color: #71717a;">Payment Status</td>
+                    <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: <%= paymentStatus === 'PAID' ? '#059669' : '#d97706' %>;"><%= paymentStatus %></td>
+                </tr>
+            </table>
+
+            <!-- Items Table -->
+            <p style="margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #71717a;">
+                Order Summary
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #18181b; text-align: left; color: #71717a; font-size: 11px; text-transform: uppercase;">
+                        <th style="padding: 8px 0;">Fragrance</th>
+                        <th style="padding: 8px 0; text-align: center;">Qty</th>
+                        <th style="padding: 8px 0; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% items.forEach(function(item) { %>
+                    <tr style="border-bottom: 1px solid #f4f4f5;">
+                        <td style="padding: 10px 0;">
+                            <div style="font-weight: 600; color: #09090b;"><%= item.productName %></div>
+                            <div style="font-size: 11px; color: #71717a;"><%= item.size %><%= item.colorName ? ' • ' + item.colorName : '' %></div>
+                        </td>
+                        <td style="padding: 10px 0; text-align: center; color: #3f3f46;"><%= item.quantity %></td>
+                        <td style="padding: 10px 0; text-align: right; color: #09090b;">BDT <%= Number(item.totalPrice).toLocaleString() %></td>
+                    </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; margin-bottom: 24px;">
+                <tr>
+                    <td style="padding: 4px 0; color: #71717a;">Subtotal</td>
+                    <td style="padding: 4px 0; text-align: right; color: #09090b;">BDT <%= Number(subtotal).toLocaleString() %></td>
+                </tr>
+                <% if (Number(discountAmount) > 0) { %>
+                <tr>
+                    <td style="padding: 4px 0; color: #059669;">Discount<%= couponCode ? ' (' + couponCode + ')' : '' %></td>
+                    <td style="padding: 4px 0; text-align: right; color: #059669;">-BDT <%= Number(discountAmount).toLocaleString() %></td>
+                </tr>
+                <% } %>
+                <tr>
+                    <td style="padding: 4px 0; color: #71717a;">Delivery Charge</td>
+                    <td style="padding: 4px 0; text-align: right; color: #09090b;">
+                        <%= Number(shippingCharge) === 0 ? 'Complimentary' : 'BDT ' + Number(shippingCharge).toLocaleString() %>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0 4px 0; border-top: 1px solid #e4e4e7; font-size: 14px; font-weight: 600; color: #09090b;">Total Payable</td>
+                    <td style="padding: 10px 0 4px 0; border-top: 1px solid #e4e4e7; text-align: right; font-size: 14px; font-weight: 600; color: #09090b;">BDT <%= Number(totalAmount).toLocaleString() %></td>
+                </tr>
+                <% if (Number(advancePaidAmount) > 0) { %>
+                <tr>
+                    <td style="padding: 4px 0; color: #059669;">Paid Online</td>
+                    <td style="padding: 4px 0; text-align: right; color: #059669;">BDT <%= Number(advancePaidAmount).toLocaleString() %></td>
+                </tr>
+                <% } %>
+                <% if (Number(codCollectibleAmount) > 0) { %>
+                <tr>
+                    <td style="padding: 4px 0; color: #71717a;">Cash on Delivery Due</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #09090b;">BDT <%= Number(codCollectibleAmount).toLocaleString() %></td>
+                </tr>
+                <% } %>
+            </table>
+
+            <!-- Shipping Destination -->
+            <div style="border: 1px solid #e4e4e7; padding: 14px 16px; margin-bottom: 24px; font-size: 12px; color: #3f3f46;">
+                <p style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #71717a;">
+                    Shipping Destination
+                </p>
+                <div style="font-weight: 600; color: #09090b;"><%= customerName %> (<%= customerPhone %>)</div>
+                <div style="margin-top: 4px; line-height: 1.5;"><%= shippingAddress %>, <%= thana %>, <%= district %>, <%= division %></div>
+            </div>
+
+            <!-- CTA -->
+            <div style="text-align: center; margin-top: 24px;">
+                <a href="<%= ordersUrl %>" style="display: inline-block; background-color: #09090b; color: #ffffff; text-decoration: none; padding: 12px 26px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;">
+                    View My Orders
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 18px 32px; background-color: #fafafa; border-top: 1px solid #e4e4e7; text-align: center; font-size: 11px; color: #71717a;">
+            FIFTH SENSE PERFUMES &bull; Artisanal Luxury Fragrances
+        </div>
+    </div>
+</body>
+</html>
