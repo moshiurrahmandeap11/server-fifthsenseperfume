@@ -211,8 +211,9 @@ const checkoutOrder = async (
                 if (coupon.maxDiscountAmount) {
                     discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
                 }
+                discountAmount = Math.round(discountAmount);
             } else if (coupon.discountType === "FIXED") {
-                discountAmount = Math.min(coupon.discountValue, subtotal);
+                discountAmount = Math.round(Math.min(coupon.discountValue, subtotal));
             } else if (coupon.discountType === "FREE_SHIPPING") {
                 shippingCharge = 0;
             }
