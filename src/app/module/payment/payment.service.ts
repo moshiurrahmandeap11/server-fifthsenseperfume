@@ -156,6 +156,13 @@ const initiatePayment = async (payload: IInitiatePaymentPayload) => {
         const stripe = new Stripe(stripeSecretKey);
         const currency = (envVars.PAYMENT.STRIPE_CURRENCY || "bdt").toLowerCase();
 
+        if (currency === "bdt" && amount < 65) {
+            throw new AppError(
+                status.BAD_REQUEST,
+                "Minimum card payment amount is ৳65 (Stripe requires at least $0.50 USD equivalent). Please add more items or select Cash on Delivery."
+            );
+        }
+
         const session = await stripe.checkout.sessions.create({
             mode: "payment",
             customer_email: order.customerEmail || undefined,
