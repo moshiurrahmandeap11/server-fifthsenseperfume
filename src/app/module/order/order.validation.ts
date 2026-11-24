@@ -30,6 +30,7 @@ export const checkoutZodSchema = z.object({
     paymentMethod: z.enum(PaymentMethods).optional(),
     source: z.enum(OrderSources).optional(),
     couponCode: z.string().optional(),
+    redeemPoints: z.coerce.number().int().min(0).optional(),
     customerNote: z.string().max(300).optional(),
     items: z.array(
         z.object({
