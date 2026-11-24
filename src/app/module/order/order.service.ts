@@ -210,6 +210,33 @@ const checkoutOrder = async (
         }
     }
 
+    // 4.5. Loyalty Points Redemption (Server-Side Verified)
+    let loyaltyPointsRedeemed = 0;
+    const requestedRedeemPoints = Math.max(0, Math.floor(Number(payload.redeemPoints || 0)));
+    const pointValueBdt = platformSettings?.loyaltyPointValueBdt ?? 1;
+
+    if (requestedRedeemPoints > 0 && user?.userId && pointValueBdt > 0) {
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.userId },
+            select: { loyaltyPoints: true },
+        });
+
+        if (!dbUser || dbUser.loyaltyPoints < requestedRedeemPoints) {
+            throw new AppError(
+                status.BAD_REQUEST,
+                "Insufficient loyalty points for redemption"
+            );
+        }
+
+        const remainingSubtotal = Math.max(0, subtotal - discountAmount);
+        const maxRedeemablePoints = Math.floor(remainingSubtotal / pointValueBdt);
+        loyaltyPointsRedeemed = Math.min(requestedRedeemPoints, maxRedeemablePoints);
+
+        if (loyaltyPointsRedeemed > 0) {
+            discountAmount += loyaltyPointsRedeemed * pointValueBdt;
+        }
+    }
+
     const totalAmount = Math.max(0, subtotal - discountAmount + shippingCharge);
     const advancePaidAmount = 0;
     const codCollectibleAmount = totalAmount - advancePaidAmount;
