@@ -585,6 +585,51 @@ const updateOrderStatus = async (
             }
         }
 
+        // Award Loyalty Points when order is DELIVERED (once per order, for logged-in users)
+        if (
+            newStatus === OrderStatus.DELIVERED &&
+            order.userId &&
+            order.loyaltyPointsAwarded === 0
+        ) {
+            const settings = await tx.platformSettings.findFirst({
+                select: { loyaltyPointsPer100Bdt: true },
+            });
+            const ratePer100 = settings?.loyaltyPointsPer100Bdt ?? 1;
+            const netMerchandise = Math.max(0, order.subtotal - order.discountAmount);
+            const pointsToAward = Math.floor(netMerchandise / 100) * ratePer100;
+
+            if (pointsToAward > 0) {
+                await tx.user.update({
+                    where: { id: order.userId },
+                    data: { loyaltyPoints: { increment: pointsToAward } },
+                });
+                updateData.loyaltyPointsAwarded = pointsToAward;
+            }
+        }
+
+        // Reverse awarded Loyalty Points if a delivered order is later CANCELLED or RETURNED
+        if (
+            (newStatus === OrderStatus.CANCELLED || newStatus === OrderStatus.RETURNED) &&
+            order.userId &&
+            order.loyaltyPointsAwarded > 0
+        ) {
+            const customer = await tx.user.findUnique({
+                where: { id: order.userId },
+                select: { loyaltyPoints: true },
+            });
+            if (customer) {
+                const nextPoints = Math.max(
+                    0,
+                    customer.loyaltyPoints - order.loyaltyPointsAwarded
+                );
+                await tx.user.update({
+                    where: { id: order.userId },
+                    data: { loyaltyPoints: nextPoints },
+                });
+            }
+            updateData.loyaltyPointsAwarded = 0;
+        }
+
         const updatedOrder = await tx.order.update({
             where: { id: orderId },
             data: updateData,
