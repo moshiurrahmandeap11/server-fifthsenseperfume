@@ -173,7 +173,7 @@ const checkoutOrder = async (
         platformSettings?.enabledPaymentMethods &&
         platformSettings.enabledPaymentMethods.length > 0
             ? platformSettings.enabledPaymentMethods
-            : ["COD", "BKASH", "NAGAD", "SSLCOMMERZ"];
+            : ["COD", "STRIPE"];
 
     if (!enabledMethods.includes(requestedPaymentMethod)) {
         throw new AppError(
