@@ -157,6 +157,18 @@ const trackPublicOrder = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getMyOrders = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.user?.userId as string;
+    const result = await OrderService.getMyOrders(userId);
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Customer orders retrieved successfully",
+        data: result,
+    });
+});
+
 export const OrderController = {
     checkoutOrder,
     incompleteCapture,
@@ -170,5 +182,6 @@ export const OrderController = {
     bulkStatusUpdate,
     scanVerifyPack,
     trackPublicOrder,
+    getMyOrders,
 };
 

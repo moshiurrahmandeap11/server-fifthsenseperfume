@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
+import {
+    allDivisionEN,
+    districtENOf,
+    thanasENOf,
+} from "all-bangladeshi-addresses";
 import { Prisma } from "../../../generated/prisma/client";
 import {
     DeliveryZone,
@@ -14,7 +19,9 @@ import {
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
+import { sendOrderInvoiceEmail } from "../../utils/invoice";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { SystemService } from "../system/system.service";
 import {
     IBulkStatusPayload,
     ICheckoutPayload,
@@ -61,7 +68,25 @@ const checkoutOrder = async (
     });
 
     if (variants.length !== payload.items.length) {
-        throw new AppError(status.NOT_FOUND, "One or more shoe variants were not found");
+        throw new AppError(status.NOT_FOUND, "One or more fragrance variants were not found");
+    }
+
+    // 1.5. Validate Bangladesh Administrative Location (Division -> District -> Thana)
+    const validDivisions = allDivisionEN() as string[];
+    if (!validDivisions.includes(payload.division)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery division selected");
+    }
+    const validDistricts = districtENOf(
+        payload.division as Parameters<typeof districtENOf>[0]
+    ) as string[];
+    if (!validDistricts.includes(payload.district)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery district for selected division");
+    }
+    const validThanas = thanasENOf(
+        payload.district as Parameters<typeof thanasENOf>[0]
+    ) as string[];
+    if (!validThanas.includes(payload.thana)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery thana/area for selected district");
     }
 
     const itemMap = new Map(payload.items.map((i) => [i.variantId, i.quantity]));
@@ -111,15 +136,50 @@ const checkoutOrder = async (
         });
     }
 
-    // 3. Shipping Charge Calculation
-    const deliveryZone = payload.deliveryZone || DeliveryZone.INSIDE_DHAKA;
-    const zoneRule = await prisma.shippingZoneRule.findUnique({
-        where: { zone: deliveryZone },
-    });
+    // 3. Secure Server-Side Shipping Charge Calculation (Never trust client deliveryZone)
+    const deliveryZone = SystemService.resolveDeliveryZone(
+        payload.division,
+        payload.district,
+        payload.thana
+    );
+    const [platformSettings, zoneRule] = await Promise.all([
+        prisma.platformSettings.findFirst(),
+        prisma.shippingZoneRule.findUnique({
+            where: { zone: deliveryZone },
+        }),
+    ]);
 
-    let shippingCharge = zoneRule ? zoneRule.charge : deliveryZone === DeliveryZone.INSIDE_DHAKA ? 70 : 130;
-    if (zoneRule?.freeShippingMinAmount && subtotal >= zoneRule.freeShippingMinAmount) {
+    let shippingCharge = 60;
+    if (deliveryZone === DeliveryZone.INSIDE_DHAKA) {
+        shippingCharge =
+            platformSettings?.insideDhakaShipping ?? zoneRule?.charge ?? 60;
+    } else if (deliveryZone === DeliveryZone.DHAKA_SUB_AREA) {
+        shippingCharge =
+            platformSettings?.dhakaSubAreaShipping ?? zoneRule?.charge ?? 100;
+    } else {
+        shippingCharge =
+            platformSettings?.outsideDhakaShipping ?? zoneRule?.charge ?? 120;
+    }
+
+    const freeThreshold =
+        platformSettings?.freeShippingThreshold ?? zoneRule?.freeShippingMinAmount;
+    if (freeThreshold && freeThreshold > 0 && subtotal >= freeThreshold) {
         shippingCharge = 0;
+    }
+
+    // 3.5. Validate that requested payment method is enabled in Admin PlatformSettings
+    const requestedPaymentMethod = payload.paymentMethod || PaymentMethod.COD;
+    const enabledMethods =
+        platformSettings?.enabledPaymentMethods &&
+        platformSettings.enabledPaymentMethods.length > 0
+            ? platformSettings.enabledPaymentMethods
+            : ["COD", "STRIPE"];
+
+    if (!enabledMethods.includes(requestedPaymentMethod)) {
+        throw new AppError(
+            status.BAD_REQUEST,
+            `Payment method '${requestedPaymentMethod}' is currently disabled`
+        );
     }
 
     // 4. Coupon Discount Calculation
@@ -131,11 +191,19 @@ const checkoutOrder = async (
             where: { code: payload.couponCode.toUpperCase() },
         });
 
+        const now = new Date();
+        const totalItemsCount = payload.items.reduce((sum, item) => sum + item.quantity, 0);
+        const isPrepaidOrder = requestedPaymentMethod !== PaymentMethod.COD;
+
         if (
             coupon &&
             coupon.isActive &&
-            (!coupon.expiresAt || new Date(coupon.expiresAt) > new Date()) &&
-            subtotal >= coupon.minOrderAmount
+            new Date(coupon.startsAt) <= now &&
+            (!coupon.expiresAt || new Date(coupon.expiresAt) > now) &&
+            (coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit) &&
+            subtotal >= coupon.minOrderAmount &&
+            totalItemsCount >= coupon.minPairCount &&
+            (!coupon.onlyPrepaid || isPrepaidOrder)
         ) {
             appliedCouponId = coupon.id;
             if (coupon.discountType === "PERCENTAGE") {
@@ -143,11 +211,39 @@ const checkoutOrder = async (
                 if (coupon.maxDiscountAmount) {
                     discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
                 }
+                discountAmount = Math.round(discountAmount);
             } else if (coupon.discountType === "FIXED") {
-                discountAmount = Math.min(coupon.discountValue, subtotal);
+                discountAmount = Math.round(Math.min(coupon.discountValue, subtotal));
             } else if (coupon.discountType === "FREE_SHIPPING") {
                 shippingCharge = 0;
             }
+        }
+    }
+
+    // 4.5. Loyalty Points Redemption (Server-Side Verified)
+    let loyaltyPointsRedeemed = 0;
+    const requestedRedeemPoints = Math.max(0, Math.floor(Number(payload.redeemPoints || 0)));
+    const pointValueBdt = platformSettings?.loyaltyPointValueBdt ?? 1;
+
+    if (requestedRedeemPoints > 0 && user?.userId && pointValueBdt > 0) {
+        const dbUser = await prisma.user.findUnique({
+            where: { id: user.userId },
+            select: { loyaltyPoints: true },
+        });
+
+        if (!dbUser || dbUser.loyaltyPoints < requestedRedeemPoints) {
+            throw new AppError(
+                status.BAD_REQUEST,
+                "Insufficient loyalty points for redemption"
+            );
+        }
+
+        const remainingSubtotal = Math.max(0, subtotal - discountAmount);
+        const maxRedeemablePoints = Math.floor(remainingSubtotal / pointValueBdt);
+        loyaltyPointsRedeemed = Math.min(requestedRedeemPoints, maxRedeemablePoints);
+
+        if (loyaltyPointsRedeemed > 0) {
+            discountAmount += loyaltyPointsRedeemed * pointValueBdt;
         }
     }
 
@@ -156,8 +252,26 @@ const checkoutOrder = async (
     const codCollectibleAmount = totalAmount - advancePaidAmount;
     const orderNumber = generateOrderNumber();
 
-    // 5. Atomic Transaction: Create Order, Deduct Stock, Log Movement
+    // 5. Atomic Transaction: Create Order, Deduct Stock & Points, Log Movement
     const createdOrder = await prisma.$transaction(async (tx) => {
+        if (appliedCouponId) {
+            await tx.coupon.update({
+                where: { id: appliedCouponId },
+                data: {
+                    usedCount: { increment: 1 },
+                },
+            });
+        }
+
+        if (loyaltyPointsRedeemed > 0 && user?.userId) {
+            await tx.user.update({
+                where: { id: user.userId },
+                data: {
+                    loyaltyPoints: { decrement: loyaltyPointsRedeemed },
+                },
+            });
+        }
+
         const newOrder = await tx.order.create({
             data: {
                 orderNumber,
@@ -175,6 +289,7 @@ const checkoutOrder = async (
                 couponId: appliedCouponId,
                 couponCode: payload.couponCode?.toUpperCase() || null,
                 shippingCharge,
+                loyaltyPointsRedeemed,
                 totalAmount,
                 advancePaidAmount,
                 codCollectibleAmount,
@@ -250,6 +365,10 @@ const checkoutOrder = async (
 
         return newOrder;
     });
+
+    if (createdOrder.paymentMethod === PaymentMethod.COD) {
+        void sendOrderInvoiceEmail(createdOrder);
+    }
 
     return createdOrder;
 };
@@ -487,6 +606,51 @@ const updateOrderStatus = async (
                     });
                 }
             }
+        }
+
+        // Award Loyalty Points when order is DELIVERED (once per order, for logged-in users)
+        if (
+            newStatus === OrderStatus.DELIVERED &&
+            order.userId &&
+            order.loyaltyPointsAwarded === 0
+        ) {
+            const settings = await tx.platformSettings.findFirst({
+                select: { loyaltyPointsPer100Bdt: true },
+            });
+            const ratePer100 = settings?.loyaltyPointsPer100Bdt ?? 1;
+            const netMerchandise = Math.max(0, order.subtotal - order.discountAmount);
+            const pointsToAward = Math.floor(netMerchandise / 100) * ratePer100;
+
+            if (pointsToAward > 0) {
+                await tx.user.update({
+                    where: { id: order.userId },
+                    data: { loyaltyPoints: { increment: pointsToAward } },
+                });
+                updateData.loyaltyPointsAwarded = pointsToAward;
+            }
+        }
+
+        // Reverse awarded Loyalty Points if a delivered order is later CANCELLED or RETURNED
+        if (
+            (newStatus === OrderStatus.CANCELLED || newStatus === OrderStatus.RETURNED) &&
+            order.userId &&
+            order.loyaltyPointsAwarded > 0
+        ) {
+            const customer = await tx.user.findUnique({
+                where: { id: order.userId },
+                select: { loyaltyPoints: true },
+            });
+            if (customer) {
+                const nextPoints = Math.max(
+                    0,
+                    customer.loyaltyPoints - order.loyaltyPointsAwarded
+                );
+                await tx.user.update({
+                    where: { id: order.userId },
+                    data: { loyaltyPoints: nextPoints },
+                });
+            }
+            updateData.loyaltyPointsAwarded = 0;
         }
 
         const updatedOrder = await tx.order.update({
@@ -758,6 +922,34 @@ const trackPublicOrder = async (orderNumber: string, phone: string) => {
     return order;
 };
 
+/**
+ * Retrieve orders belonging to the authenticated customer
+ */
+const getMyOrders = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { phoneNumber: true },
+    });
+
+    const whereConditions: Prisma.OrderWhereInput = user?.phoneNumber
+        ? {
+              OR: [{ userId }, { customerPhone: user.phoneNumber }],
+          }
+        : { userId };
+
+    return prisma.order.findMany({
+        where: whereConditions,
+        orderBy: { createdAt: "desc" },
+        include: {
+            items: true,
+            shipment: true,
+            statusHistory: {
+                orderBy: { createdAt: "desc" },
+            },
+        },
+    });
+};
+
 export const OrderService = {
     checkoutOrder,
     incompleteCapture,
@@ -770,4 +962,11 @@ export const OrderService = {
     bulkStatusUpdate,
     scanVerifyPack,
     trackPublicOrder,
+    getMyOrders,
 };
+// Order checkout & coupon audit 3
+// Order checkout & coupon audit 6
+// Order checkout & coupon audit 9
+// Order checkout & coupon audit 12
+// Order checkout & coupon audit 15
+// Order checkout & coupon audit 18

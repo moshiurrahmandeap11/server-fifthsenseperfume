@@ -177,6 +177,41 @@ const deleteShowroom = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+// --- Locations ---
+const getLocations = catchAsync(async (req: Request, res: Response) => {
+    const division = req.query.division ? String(req.query.division) : undefined;
+    const district = req.query.district ? String(req.query.district) : undefined;
+    const result = SystemService.getLocations({ division, district });
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Locations retrieved successfully",
+        data: result,
+    });
+});
+
+const getShippingQuote = catchAsync(async (req: Request, res: Response) => {
+    const division = req.query.division ? String(req.query.division) : undefined;
+    const district = req.query.district ? String(req.query.district) : undefined;
+    const thana = req.query.thana ? String(req.query.thana) : undefined;
+    const subtotal = req.query.subtotal ? Number(req.query.subtotal) : 0;
+
+    const result = await SystemService.getShippingQuote({
+        division,
+        district,
+        thana,
+        subtotal,
+    });
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Shipping quote calculated successfully",
+        data: result,
+    });
+});
+
 export const SystemController = {
     getPlatformSettings,
     updatePlatformSettings,
@@ -190,5 +225,7 @@ export const SystemController = {
     createShowroom,
     updateShowroom,
     deleteShowroom,
+    getLocations,
+    getShippingQuote,
 };
 

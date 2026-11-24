@@ -14,6 +14,9 @@ router.post(
     PaymentController.initiatePayment
 );
 
+// 1b. Stripe Checkout Session Verification (Public / Customer Redirect)
+router.get("/stripe/verify-session", PaymentController.verifyStripeSession);
+
 // 2. bKash Tokenized Callback (Supports POST & GET redirects)
 router.post("/bkash/callback", PaymentController.handleBkashCallback);
 router.get("/bkash/callback", PaymentController.handleBkashCallback);

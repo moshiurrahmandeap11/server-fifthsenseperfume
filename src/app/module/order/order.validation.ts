@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const DeliveryZones = ["INSIDE_DHAKA", "DHAKA_SUB_AREA", "OUTSIDE_DHAKA"] as const;
-const PaymentMethods = ["COD", "BKASH", "NAGAD", "ROCKET", "SSLCOMMERZ", "AAMARPAY"] as const;
+const PaymentMethods = ["COD", "STRIPE"] as const;
 const OrderSources = ["WEBSITE", "AD_LANDING_PAGE", "WHATSAPP", "MESSENGER", "PHONE_CALL", "EXCHANGE_REPLACEMENT"] as const;
 const OrderStatuses = [
     "PENDING",
@@ -30,6 +30,7 @@ export const checkoutZodSchema = z.object({
     paymentMethod: z.enum(PaymentMethods).optional(),
     source: z.enum(OrderSources).optional(),
     couponCode: z.string().optional(),
+    redeemPoints: z.coerce.number().int().min(0).optional(),
     customerNote: z.string().max(300).optional(),
     items: z.array(
         z.object({

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
+import Stripe from "stripe";
 import {
     ExpenseCategory,
     PaymentMethod,
@@ -9,6 +10,7 @@ import {
 import { envVars } from "../../config/env";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
+import { sendOrderInvoiceEmail } from "../../utils/invoice";
 import { QueryBuilder } from "../../utils/QueryBuilder";
 import {
     IBkashCallbackPayload,
@@ -139,6 +141,69 @@ const initiatePayment = async (payload: IInitiatePaymentPayload) => {
                 // Fallback to simulation URL if bKash sandbox downtime
             }
         }
+    }
+
+    // --- STRIPE CHECKOUT SESSION INTEGRATION ---
+    if (method === PaymentMethod.STRIPE) {
+        const stripeSecretKey = envVars.PAYMENT.STRIPE_SECRET_KEY;
+        if (!stripeSecretKey) {
+            throw new AppError(
+                status.INTERNAL_SERVER_ERROR,
+                "Stripe secret key is not configured in environment variables"
+            );
+        }
+
+        const stripe = new Stripe(stripeSecretKey);
+        const currency = (envVars.PAYMENT.STRIPE_CURRENCY || "bdt").toLowerCase();
+
+        const session = await stripe.checkout.sessions.create({
+            mode: "payment",
+            customer_email: order.customerEmail || undefined,
+            line_items: [
+                {
+                    price_data: {
+                        currency,
+                        product_data: {
+                            name: `Order #${order.orderNumber}`,
+                            description: `Fifth Sense — ${order.customerName} (${order.customerPhone})`,
+                        },
+                        unit_amount: Math.round(amount * 100),
+                    },
+                    quantity: 1,
+                },
+            ],
+            metadata: {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                paymentId: payment.id,
+                transactionId,
+            },
+            payment_intent_data: {
+                metadata: {
+                    orderId: order.id,
+                    orderNumber: order.orderNumber,
+                    paymentId: payment.id,
+                    transactionId,
+                },
+            },
+            success_url: `${envVars.FRONTEND_URL}/checkout/payment/success?session_id={CHECKOUT_SESSION_ID}&orderId=${order.id}`,
+            cancel_url: `${envVars.FRONTEND_URL}/checkout/payment/cancel?orderId=${order.id}&transactionId=${transactionId}`,
+        });
+
+        if (!session.url) {
+            throw new AppError(status.BAD_GATEWAY, "Failed to create Stripe Checkout session");
+        }
+
+        await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+                gatewayResponse: {
+                    stripeSessionId: session.id,
+                } as any,
+            },
+        });
+
+        gatewayUrl = session.url;
     }
 
     // --- SSLCOMMERZ GATEWAY INTEGRATION ---
@@ -698,8 +763,254 @@ const deleteExpense = async (id: string, staffId?: string) => {
     };
 };
 
+/**
+ * Idempotently settle a Stripe payment and update its Order & Shipment
+ */
+const settleStripePayment = async (
+    paymentId: string,
+    verifiedTrxId: string,
+    gatewayResponse: Record<string, any>
+) => {
+    const result = await prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.findUnique({
+            where: { id: paymentId },
+            include: {
+                order: {
+                    include: {
+                        shipment: true,
+                        items: true,
+                    },
+                },
+            },
+        });
+
+        if (!payment) {
+            throw new AppError(status.NOT_FOUND, `Payment record '${paymentId}' not found`);
+        }
+
+        if (payment.status === PaymentStatus.PAID) {
+            return {
+                success: true,
+                alreadyProcessed: true,
+                message: "Payment already verified",
+                orderId: payment.orderId,
+                orderNumber: payment.order.orderNumber,
+                trxId: payment.transactionId || verifiedTrxId,
+                amount: payment.amount,
+                codRemaining: payment.order.codCollectibleAmount,
+                order: payment.order,
+            };
+        }
+
+        const updatedCount = await tx.payment.updateMany({
+            where: { id: payment.id, status: { not: PaymentStatus.PAID } },
+            data: {
+                status: PaymentStatus.PAID,
+                transactionId: verifiedTrxId,
+                paidAt: new Date(),
+                gatewayResponse: gatewayResponse as any,
+            },
+        });
+
+        if (updatedCount.count === 0) {
+            return {
+                success: true,
+                alreadyProcessed: true,
+                message: "Payment already verified",
+                orderId: payment.orderId,
+                orderNumber: payment.order.orderNumber,
+                trxId: payment.transactionId || verifiedTrxId,
+                amount: payment.amount,
+                codRemaining: payment.order.codCollectibleAmount,
+                order: payment.order,
+            };
+        }
+
+        const newAdvancePaid = payment.order.advancePaidAmount + payment.amount;
+        const newCodCollectible = Math.max(0, payment.order.totalAmount - newAdvancePaid);
+        const targetOrderPaymentStatus =
+            newCodCollectible <= 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
+
+        const updatedOrder = await tx.order.update({
+            where: { id: payment.orderId },
+            data: {
+                advancePaidAmount: newAdvancePaid,
+                codCollectibleAmount: newCodCollectible,
+                paymentStatus: targetOrderPaymentStatus,
+                paymentMethod: PaymentMethod.STRIPE,
+            },
+            include: {
+                items: true,
+            },
+        });
+
+        if (payment.order.shipment) {
+            await tx.courierShipment.update({
+                where: { id: payment.order.shipment.id },
+                data: {
+                    codCollectibleAmount: newCodCollectible,
+                },
+            });
+        }
+
+        await tx.orderStatusHistory.create({
+            data: {
+                orderId: payment.orderId,
+                status: payment.order.status,
+                comment: `Payment received: ৳${payment.amount} via Stripe Card (Ref: ${verifiedTrxId}). COD remaining: ৳${newCodCollectible}`,
+            },
+        });
+
+        return {
+            success: true,
+            alreadyProcessed: false,
+            message: "Stripe payment verified successfully",
+            orderId: payment.orderId,
+            orderNumber: payment.order.orderNumber,
+            trxId: verifiedTrxId,
+            amount: payment.amount,
+            codRemaining: newCodCollectible,
+            order: updatedOrder,
+        };
+    });
+
+    if (!result.alreadyProcessed && result.order) {
+        void sendOrderInvoiceEmail(result.order, { isPaymentReceipt: true });
+    }
+
+    return result;
+};
+
+/**
+ * Verify a Stripe Checkout Session directly on redirect back to storefront
+ */
+const verifyStripeSession = async (sessionId: string) => {
+    if (!sessionId) {
+        throw new AppError(status.BAD_REQUEST, "Stripe session_id is required");
+    }
+
+    const stripeSecretKey = envVars.PAYMENT.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+        throw new AppError(status.INTERNAL_SERVER_ERROR, "Stripe secret key is not configured");
+    }
+
+    const stripe = new Stripe(stripeSecretKey);
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status !== "paid") {
+        throw new AppError(
+            status.BAD_REQUEST,
+            `Stripe payment is not completed (status: ${session.payment_status})`
+        );
+    }
+
+    const paymentId = session.metadata?.paymentId;
+    const transactionId = session.metadata?.transactionId;
+
+    const payment = await prisma.payment.findFirst({
+        where: paymentId ? { id: paymentId } : { transactionId },
+    });
+
+    if (!payment) {
+        throw new AppError(status.NOT_FOUND, "Matching payment record not found for Stripe session");
+    }
+
+    const verifiedTrxId =
+        typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.id;
+
+    return await settleStripePayment(payment.id, verifiedTrxId, {
+        stripeSessionId: session.id,
+        paymentIntentId: session.payment_intent,
+        paymentStatus: session.payment_status,
+        amountTotal: session.amount_total,
+        currency: session.currency,
+    });
+};
+
+/**
+ * Handle Stripe Webhook Events (checkout.session.completed, payment_intent.*)
+ */
+const handleStripeWebhook = async (rawBody: Buffer, signature: string) => {
+    const stripeSecretKey = envVars.PAYMENT.STRIPE_SECRET_KEY;
+    const webhookSecret = envVars.PAYMENT.STRIPE_WEBHOOK_SECRET;
+
+    if (!stripeSecretKey || !webhookSecret) {
+        throw new AppError(
+            status.INTERNAL_SERVER_ERROR,
+            "Stripe credentials or webhook secret are not configured"
+        );
+    }
+
+    const stripe = new Stripe(stripeSecretKey);
+    let event: Stripe.Event;
+
+    try {
+        event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    } catch (err: any) {
+        throw new AppError(
+            status.BAD_REQUEST,
+            `Webhook signature verification failed: ${err?.message || "Invalid signature"}`
+        );
+    }
+
+    if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.payment_status === "paid") {
+            const paymentId = session.metadata?.paymentId;
+            if (paymentId) {
+                const verifiedTrxId =
+                    typeof session.payment_intent === "string"
+                        ? session.payment_intent
+                        : session.id;
+                await settleStripePayment(paymentId, verifiedTrxId, {
+                    eventId: event.id,
+                    eventType: event.type,
+                    stripeSessionId: session.id,
+                    paymentIntentId: session.payment_intent,
+                });
+            }
+        }
+    } else if (event.type === "payment_intent.succeeded") {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        const paymentId = intent.metadata?.paymentId;
+        if (paymentId) {
+            await settleStripePayment(paymentId, intent.id, {
+                eventId: event.id,
+                eventType: event.type,
+                paymentIntentId: intent.id,
+            });
+        }
+    } else if (
+        event.type === "payment_intent.payment_failed" ||
+        event.type === "payment_intent.canceled"
+    ) {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        const paymentId = intent.metadata?.paymentId;
+        if (paymentId) {
+            await prisma.payment.updateMany({
+                where: { id: paymentId, status: PaymentStatus.UNPAID },
+                data: {
+                    status: PaymentStatus.FAILED,
+                    gatewayResponse: {
+                        eventId: event.id,
+                        eventType: event.type,
+                        paymentIntentId: intent.id,
+                        lastPaymentError: intent.last_payment_error?.message,
+                    } as any,
+                },
+            });
+        }
+    }
+
+    return { received: true, eventType: event.type };
+};
+
 export const PaymentService = {
     initiatePayment,
+    verifyStripeSession,
+    handleStripeWebhook,
     handleBkashCallback,
     handleSSLCommerzSuccess,
     handleSSLCommerzFailOrCancel,
@@ -711,3 +1022,9 @@ export const PaymentService = {
     updateExpense,
     deleteExpense,
 };
+// Stripe settlement check 2
+// Stripe settlement check 5
+// Stripe settlement check 8
+// Stripe settlement check 11
+// Stripe settlement check 14
+// Stripe settlement check 17

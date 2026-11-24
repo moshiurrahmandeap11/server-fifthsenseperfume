@@ -9,6 +9,7 @@ import { envVars } from "./app/config/env";
 import { auth } from "./app/lib/auth";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
+import { PaymentController } from "./app/module/payment/payment.controller";
 import { IndexRoutes } from "./app/routes";
 
 const app: Application = express();
@@ -40,6 +41,13 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 
 // Enable URL-encoded form data parsing
 app.use(express.urlencoded({ extended: true }));
+
+// Stripe webhook requires raw Buffer body BEFORE express.json()
+app.post(
+    "/api/v1/payments/stripe/webhook",
+    express.raw({ type: "application/json" }),
+    PaymentController.handleStripeWebhook
+);
 
 // Middleware to parse JSON bodies
 app.use(express.json());

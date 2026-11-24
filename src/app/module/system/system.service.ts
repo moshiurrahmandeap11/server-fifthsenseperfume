@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
+import {
+    allDivisionEN,
+    districtENOf,
+    thanasENOf,
+} from "all-bangladeshi-addresses";
+import { DeliveryZone } from "../../../generated/prisma/enums";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { QueryBuilder } from "../../utils/QueryBuilder";
@@ -369,6 +375,131 @@ const deleteShowroom = async (id: string, staffId?: string) => {
     return { message: `Showroom '${existing.name}' deleted successfully` };
 };
 
+// ==========================================
+// 4. BANGLADESH GEO LOCATIONS (SECURE BACKEND SOURCE)
+// ==========================================
+const getLocations = (query?: { division?: string; district?: string }) => {
+    if (query?.district) {
+        try {
+            const thanas = [...thanasENOf(query.district as Parameters<typeof thanasENOf>[0])].sort();
+            return { thanas };
+        } catch {
+            return { thanas: [] as string[] };
+        }
+    }
+
+    if (query?.division) {
+        try {
+            const districts = [...districtENOf(query.division as Parameters<typeof districtENOf>[0])].sort();
+            return { districts };
+        } catch {
+            return { districts: [] as string[] };
+        }
+    }
+
+    const divisions = [...allDivisionEN()].sort();
+    return { divisions };
+};
+
+const DHAKA_SUB_AREA_THANAS = new Set([
+    "savar",
+    "ashulia",
+    "dhamrai",
+    "keraniganj",
+    "south keraniganj",
+    "nawabganj",
+    "dohar",
+]);
+
+const DHAKA_SUB_AREA_DISTRICTS = new Set(["gazipur", "narayanganj"]);
+
+/**
+ * Resolve authoritative Bangladesh delivery zone from district and thana/upazila.
+ * Used by both shipping quote preview and server-side checkout order calculation.
+ */
+const resolveDeliveryZone = (
+    _division?: string,
+    district?: string,
+    thana?: string
+): DeliveryZone => {
+    const cleanDistrict = (district || "").trim().toLowerCase();
+    const cleanThana = (thana || "").trim().toLowerCase();
+
+    if (DHAKA_SUB_AREA_DISTRICTS.has(cleanDistrict)) {
+        return DeliveryZone.DHAKA_SUB_AREA;
+    }
+
+    if (cleanDistrict === "dhaka") {
+        if (cleanThana && DHAKA_SUB_AREA_THANAS.has(cleanThana)) {
+            return DeliveryZone.DHAKA_SUB_AREA;
+        }
+        return DeliveryZone.INSIDE_DHAKA;
+    }
+
+    return DeliveryZone.OUTSIDE_DHAKA;
+};
+
+/**
+ * Calculate live shipping charge and free-shipping eligibility from PlatformSettings.
+ */
+const getShippingQuote = async (query: {
+    division?: string;
+    district?: string;
+    thana?: string;
+    subtotal?: number;
+}) => {
+    const deliveryZone = resolveDeliveryZone(
+        query.division,
+        query.district,
+        query.thana
+    );
+    const [platformSettings, zoneRule] = await Promise.all([
+        prisma.platformSettings.findFirst(),
+        prisma.shippingZoneRule.findUnique({
+            where: { zone: deliveryZone },
+        }),
+    ]);
+
+    let baseCharge = 60;
+    let label = "Inside Dhaka City";
+    let eta = "24 – 48 Hours";
+
+    if (deliveryZone === DeliveryZone.INSIDE_DHAKA) {
+        baseCharge =
+            platformSettings?.insideDhakaShipping ?? zoneRule?.charge ?? 60;
+        label = "Inside Dhaka City";
+        eta = "24 – 48 Hours";
+    } else if (deliveryZone === DeliveryZone.DHAKA_SUB_AREA) {
+        baseCharge =
+            platformSettings?.dhakaSubAreaShipping ?? zoneRule?.charge ?? 100;
+        label = "Dhaka Sub-Area (Savar, Gazipur, Narayanganj)";
+        eta = "2 – 3 Days";
+    } else {
+        baseCharge =
+            platformSettings?.outsideDhakaShipping ?? zoneRule?.charge ?? 120;
+        label = "Outside Dhaka (Nationwide)";
+        eta = "2 – 4 Days";
+    }
+
+    const freeShippingThreshold =
+        platformSettings?.freeShippingThreshold ??
+        zoneRule?.freeShippingMinAmount ??
+        null;
+    const subtotal = Number(query.subtotal || 0);
+    const isFreeShipping =
+        Boolean(freeShippingThreshold && freeShippingThreshold > 0 && subtotal >= freeShippingThreshold);
+
+    return {
+        deliveryZone,
+        label,
+        eta,
+        baseCharge,
+        charge: isFreeShipping ? 0 : baseCharge,
+        isFreeShipping,
+        freeShippingThreshold,
+    };
+};
+
 export const SystemService = {
     getPlatformSettings,
     updatePlatformSettings,
@@ -382,5 +513,8 @@ export const SystemService = {
     createShowroom,
     updateShowroom,
     deleteShowroom,
+    getLocations,
+    resolveDeliveryZone,
+    getShippingQuote,
 };
 

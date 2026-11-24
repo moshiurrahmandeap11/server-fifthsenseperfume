@@ -98,5 +98,11 @@ router.delete(
     SystemController.deleteShowroom
 );
 
+// ==========================================
+// 4. BANGLADESH LOCATIONS & SHIPPING QUOTE
+// ==========================================
+router.get("/locations", SystemController.getLocations);
+router.get("/shipping-quote", SystemController.getShippingQuote);
+
 export const SystemRoutes = router;
 

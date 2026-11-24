@@ -53,6 +53,10 @@ interface EnvConfig {
         SSLCOMMERZ_STORE_ID?: string;
         SSLCOMMERZ_STORE_PASSWORD?: string;
         SSLCOMMERZ_IS_LIVE?: string;
+        STRIPE_PUBLISHABLE_KEY?: string;
+        STRIPE_SECRET_KEY?: string;
+        STRIPE_WEBHOOK_SECRET?: string;
+        STRIPE_CURRENCY?: string;
     };
     SMS: {
         SMS_API_KEY?: string;
@@ -151,6 +155,10 @@ const loadEnvVariables = (): EnvConfig => {
             SSLCOMMERZ_STORE_ID: process.env.SSLCOMMERZ_STORE_ID,
             SSLCOMMERZ_STORE_PASSWORD: process.env.SSLCOMMERZ_STORE_PASSWORD,
             SSLCOMMERZ_IS_LIVE: process.env.SSLCOMMERZ_IS_LIVE || 'false',
+            STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+            STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+            STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+            STRIPE_CURRENCY: process.env.STRIPE_CURRENCY || 'bdt',
         },
         SMS: {
             SMS_API_KEY: process.env.SMS_API_KEY,

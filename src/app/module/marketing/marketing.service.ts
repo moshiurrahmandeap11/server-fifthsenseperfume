@@ -62,19 +62,19 @@ const applyCoupon = async (payload: IApplyCouponPayload): Promise<IApplyCouponRe
         );
     }
 
-    // Check Minimum Pair Count
+    // Check Minimum Pair / Item Count
     if (totalPairs < coupon.minPairCount) {
         throw new AppError(
             status.BAD_REQUEST,
-            `Minimum ${coupon.minPairCount} pair(s) of shoes required to apply this coupon`
+            `Minimum ${coupon.minPairCount} item(s) required to apply this coupon`
         );
     }
 
-    // Check Prepaid-Only Restriction (e.g. bKash/Card exclusive promo)
+    // Check Prepaid-Only Restriction (e.g. Card exclusive promo)
     if (coupon.onlyPrepaid && !isPrepaid) {
         throw new AppError(
             status.BAD_REQUEST,
-            "This coupon is exclusively valid for prepaid orders (bKash/Card payments)"
+            "This coupon is exclusively valid for prepaid card orders"
         );
     }
 
