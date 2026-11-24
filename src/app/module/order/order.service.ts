@@ -67,7 +67,25 @@ const checkoutOrder = async (
     });
 
     if (variants.length !== payload.items.length) {
-        throw new AppError(status.NOT_FOUND, "One or more shoe variants were not found");
+        throw new AppError(status.NOT_FOUND, "One or more fragrance variants were not found");
+    }
+
+    // 1.5. Validate Bangladesh Administrative Location (Division -> District -> Thana)
+    const validDivisions = allDivisionEN() as string[];
+    if (!validDivisions.includes(payload.division)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery division selected");
+    }
+    const validDistricts = districtENOf(
+        payload.division as Parameters<typeof districtENOf>[0]
+    ) as string[];
+    if (!validDistricts.includes(payload.district)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery district for selected division");
+    }
+    const validThanas = thanasENOf(
+        payload.district as Parameters<typeof thanasENOf>[0]
+    ) as string[];
+    if (!validThanas.includes(payload.thana)) {
+        throw new AppError(status.BAD_REQUEST, "Invalid delivery thana/area for selected district");
     }
 
     const itemMap = new Map(payload.items.map((i) => [i.variantId, i.quantity]));
