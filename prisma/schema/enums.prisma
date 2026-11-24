@@ -90,6 +90,7 @@ enum IncompleteOrderStatus {
 
 enum PaymentMethod {
   COD
+  STRIPE
   BKASH
   NAGAD
   ROCKET
