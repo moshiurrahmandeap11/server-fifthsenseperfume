@@ -155,6 +155,10 @@ const loadEnvVariables = (): EnvConfig => {
             SSLCOMMERZ_STORE_ID: process.env.SSLCOMMERZ_STORE_ID,
             SSLCOMMERZ_STORE_PASSWORD: process.env.SSLCOMMERZ_STORE_PASSWORD,
             SSLCOMMERZ_IS_LIVE: process.env.SSLCOMMERZ_IS_LIVE || 'false',
+            STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+            STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+            STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+            STRIPE_CURRENCY: process.env.STRIPE_CURRENCY || 'bdt',
         },
         SMS: {
             SMS_API_KEY: process.env.SMS_API_KEY,
