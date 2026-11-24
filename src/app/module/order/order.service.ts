@@ -366,6 +366,10 @@ const checkoutOrder = async (
         return newOrder;
     });
 
+    if (createdOrder.paymentMethod === PaymentMethod.COD) {
+        void sendOrderInvoiceEmail(createdOrder);
+    }
+
     return createdOrder;
 };
 
