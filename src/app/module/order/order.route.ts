@@ -33,6 +33,12 @@ router.get(
     OrderController.trackPublicOrder
 );
 
+router.get(
+    "/my-orders",
+    checkAuth(),
+    OrderController.getMyOrders
+);
+
 // 2. Call Center & Incomplete Order Recovery
 router.get(
     "/incomplete",
