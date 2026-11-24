@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
+import Stripe from "stripe";
 import {
     ExpenseCategory,
     PaymentMethod,
