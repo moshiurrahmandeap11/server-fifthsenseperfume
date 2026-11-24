@@ -53,6 +53,10 @@ interface EnvConfig {
         SSLCOMMERZ_STORE_ID?: string;
         SSLCOMMERZ_STORE_PASSWORD?: string;
         SSLCOMMERZ_IS_LIVE?: string;
+        STRIPE_PUBLISHABLE_KEY?: string;
+        STRIPE_SECRET_KEY?: string;
+        STRIPE_WEBHOOK_SECRET?: string;
+        STRIPE_CURRENCY?: string;
     };
     SMS: {
         SMS_API_KEY?: string;
