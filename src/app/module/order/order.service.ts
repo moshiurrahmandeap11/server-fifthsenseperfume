@@ -135,14 +135,34 @@ const checkoutOrder = async (
         });
     }
 
-    // 3. Shipping Charge Calculation
-    const deliveryZone = payload.deliveryZone || DeliveryZone.INSIDE_DHAKA;
-    const zoneRule = await prisma.shippingZoneRule.findUnique({
-        where: { zone: deliveryZone },
-    });
+    // 3. Secure Server-Side Shipping Charge Calculation (Never trust client deliveryZone)
+    const deliveryZone = SystemService.resolveDeliveryZone(
+        payload.division,
+        payload.district,
+        payload.thana
+    );
+    const [platformSettings, zoneRule] = await Promise.all([
+        prisma.platformSettings.findFirst(),
+        prisma.shippingZoneRule.findUnique({
+            where: { zone: deliveryZone },
+        }),
+    ]);
 
-    let shippingCharge = zoneRule ? zoneRule.charge : deliveryZone === DeliveryZone.INSIDE_DHAKA ? 70 : 130;
-    if (zoneRule?.freeShippingMinAmount && subtotal >= zoneRule.freeShippingMinAmount) {
+    let shippingCharge = 60;
+    if (deliveryZone === DeliveryZone.INSIDE_DHAKA) {
+        shippingCharge =
+            platformSettings?.insideDhakaShipping ?? zoneRule?.charge ?? 60;
+    } else if (deliveryZone === DeliveryZone.DHAKA_SUB_AREA) {
+        shippingCharge =
+            platformSettings?.dhakaSubAreaShipping ?? zoneRule?.charge ?? 100;
+    } else {
+        shippingCharge =
+            platformSettings?.outsideDhakaShipping ?? zoneRule?.charge ?? 120;
+    }
+
+    const freeThreshold =
+        platformSettings?.freeShippingThreshold ?? zoneRule?.freeShippingMinAmount;
+    if (freeThreshold && freeThreshold > 0 && subtotal >= freeThreshold) {
         shippingCharge = 0;
     }
 
